@@ -1,8 +1,11 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { login, loginWithGoogle } from "../utils/auth"; 
+import { db } from "../firebase";
+import { doc, getDoc, setDoc } from "firebase/firestore";
 
 export default function Login({ setUser }) {
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
@@ -11,41 +14,118 @@ export default function Login({ setUser }) {
     setForm(f => ({ ...f, [name]: value }));
   };
 
-  const handleSubmit = e => {
-    e.preventDefault();
-    setError(""); 
-    
-    // Get all registered users
-    const allUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
-    
-    if (allUsers.length === 0) {
-      setError("No users registered. Please register first.");
+  const handleSubmit = async e => {
+  e.preventDefault();
+  setError("");
+  try {
+    const userCredential = await login(form.email, form.password);
+    // Fetch user profile from Firestore
+    const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+    const userData = userDoc.exists() ? userDoc.data() : {};
+
+    // Debug logs to help diagnose routing issues
+    console.debug("Login: uid=", userCredential.user.uid);
+    console.debug("Login: emailVerified=", userCredential.user.emailVerified);
+    console.debug("Login: userDoc.exists=", userDoc.exists());
+    console.debug("Login: userData=", userData);
+
+    // If no document exists, this might be a provider who hasn't completed verification
+    // Check Firebase Auth for email verification status
+    if (!userDoc.exists() && userCredential.user.emailVerified) {
+      // As a fallback create a minimal provider document so verified providers are routed correctly.
+      // This handles cases where the verification flow couldn't write to Firestore earlier.
+      const uid = userCredential.user.uid;
+      const fallbackDoc = {
+        email: userCredential.user.email,
+        username: userCredential.user.email ? userCredential.user.email.split('@')[0] : "",
+        role: "provider",
+        verified: true,
+        verificationCompleted: true,
+        createdAt: new Date().toISOString()
+      };
+      try {
+        await setDoc(doc(db, "users", uid), fallbackDoc);
+        console.debug("Login: created fallback users doc for uid=", uid, fallbackDoc);
+      } catch (createErr) {
+        console.error("Login: failed to create fallback users doc:", createErr);
+        // If creation fails, fall back to sending user to provider-verification page
+        setUser({
+          ...userCredential.user,
+          role: "provider"
+        });
+        navigate("/provider-verification");
+        return;
+      }
+
+      // Set user and navigate to dashboard now that doc exists
+      const userWithRole = { ...userCredential.user, ...fallbackDoc };
+      setUser(userWithRole);
+      navigate("/dashboard");
       return;
     }
-    
+
+    const userWithRole = {
+      ...userCredential.user,
+      ...userData
+    };
+    console.debug("Login: userWithRole=", userWithRole);
+    setUser(userWithRole);
+
+    // Redirect based on role and verification
+    if (userWithRole.role === "provider") {
+      if (userWithRole.verificationCompleted) {
+        navigate("/dashboard");
+      } else {
+        navigate("/provider-verification"); // Redirect to verification page
+      }
+    } else {
+      navigate("/home");
+    }
+  } catch (err) {
+    setError("Invalid email or password. Please try again.");
+  }
+};
+
+  // ...existing code...
+  // Google sign-in handler
+  const handleGoogleSignIn = async () => {
+    setError("");
     try {
-      // Find user with matching credentials
-      const foundUser = allUsers.find(user => 
-        user.username === form.username && user.password === form.password
-      );
+      const userCredential = await loginWithGoogle();
       
-      if (foundUser) {
-        // Set as current user
-        localStorage.setItem("authUser", JSON.stringify(foundUser));
-        setUser(foundUser);
-        
-        // Navigate based on user role
-        if (foundUser.role === 'provider') {
-          navigate("/dashboard"); 
+      // Fetch user profile from Firestore
+      const userDoc = await getDoc(doc(db, "users", userCredential.user.uid));
+      const userData = userDoc.exists() ? userDoc.data() : {};
+      
+      // If no document exists, this might be a provider who hasn't completed verification
+      if (!userDoc.exists() && userCredential.user.emailVerified) {
+        // This is likely a provider who needs to complete verification
+        setUser({
+          ...userCredential.user,
+          role: "provider" // Assume provider since no document exists
+        });
+        navigate("/provider-verification");
+        return;
+      }
+      
+      const userWithRole = {
+        ...userCredential.user,
+        ...userData
+      };
+      setUser(userWithRole);
+      
+      // Redirect based on role and verification
+      if (userWithRole.role === "provider") {
+        if (userWithRole.verificationCompleted) {
+          navigate("/dashboard");
         } else {
-          navigate("/"); 
+          navigate("/provider-verification");
         }
       } else {
-        setError("Invalid username or password. Please try again.");
+        navigate("/home");
       }
     } catch (err) {
-      setError("Error reading user data. Please try again.");
-      console.error("Login error:", err);
+      setError("Google sign-in failed. Please try again.");
     }
   };
 
@@ -62,7 +142,7 @@ export default function Login({ setUser }) {
         background: "#ffffff",
         padding: "40px",
         borderRadius: "20px",
-        boxShadow: "0 20px 40px rgba(0, 0, 0, 0.1)",
+        boxShadow: "0 50px 90px rgba(0, 0, 0, 0.1)",
         width: "100%",
         maxWidth: "400px"
       }}>
@@ -101,12 +181,13 @@ export default function Login({ setUser }) {
               color: "#374151",
               marginBottom: "8px"
             }}>
-              👤 Username
+              📧 Email
             </label>
             <input
-              name="username"
-              placeholder="Enter your username"
-              value={form.username}
+              name="email"
+              type="email"
+              placeholder="Enter your email"
+              value={form.email}
               onChange={handleChange}
               required
               style={{
@@ -119,14 +200,6 @@ export default function Login({ setUser }) {
                 background: "#f9fafb",
                 transition: "all 0.3s ease",
                 boxSizing: "border-box"
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#676EC2";
-                e.target.style.background = "#ffffff";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "#e5e7eb";
-                e.target.style.background = "#f9fafb";
               }}
             />
           </div>
@@ -158,14 +231,6 @@ export default function Login({ setUser }) {
                 background: "#f9fafb",
                 transition: "all 0.3s ease",
                 boxSizing: "border-box"
-              }}
-              onFocus={(e) => {
-                e.target.style.borderColor = "#676EC2";
-                e.target.style.background = "#ffffff";
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = "#e5e7eb";
-                e.target.style.background = "#f9fafb";
               }}
             />
           </div>
@@ -203,10 +268,29 @@ export default function Login({ setUser }) {
               transition: "all 0.3s ease",
               marginBottom: "20px"
             }}
-            onMouseOver={(e) => e.target.style.transform = "translateY(-2px)"}
-            onMouseOut={(e) => e.target.style.transform = "translateY(0)"}
           >
             🚀 Sign In
+          </button>
+
+          {/* Google Sign-In Button */}
+          <button
+            type="button"
+            onClick={handleGoogleSignIn}
+            style={{
+              width: "100%",
+              padding: "16px",
+              background: "#4285F4",
+              color: "white",
+              border: "none",
+              borderRadius: "12px",
+              fontSize: "16px",
+              fontWeight: "600",
+              cursor: "pointer",
+              transition: "all 0.3s ease",
+              marginBottom: "20px"
+            }}
+          >
+            <span style={{ marginRight: "8px" }}>🔗</span> Sign in with Google
           </button>
 
           {/* Register Link */}

@@ -1,52 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getNotifications } from '../Data/SeedData';
 
 const ProviderNavbar = ({ activeTab, setActiveTab, provider, setUser }) => {
   const navigate = useNavigate();
-  const [pendingNotifications, setPendingNotifications] = useState(0);
-  
+
   const navItems = [
     { id: 'dashboard', label: 'Dashboard', icon: '📊' },
     { id: 'analytics', label: 'Analytics', icon: '📈' },
     { id: 'addSpot', label: 'Add Parking Spots', icon: '➕' },
-    { id: 'notifications', label: 'Notifications', icon: '🔔', badge: pendingNotifications },
     { id: 'profile', label: 'Profile', icon: '👤' },
   ];
 
-  useEffect(() => {
-    // Load pending notifications count
-    const loadNotifications = () => {
-      if (provider?.id) {
-        const notifications = getNotifications();
-        const providerPendingCount = notifications.filter(
-          n => n.providerId === provider.id && n.status === 'pending'
-        ).length;
-        setPendingNotifications(providerPendingCount);
-      }
-    };
-
-    loadNotifications();
-
-    // Listen for notification updates
-    const handleNotificationUpdate = () => {
-      loadNotifications();
-    };
-
-    window.addEventListener('notification-updated', handleNotificationUpdate);
-    window.addEventListener('booking-updated', handleNotificationUpdate);
-    
-    return () => {
-      window.removeEventListener('notification-updated', handleNotificationUpdate);
-      window.removeEventListener('booking-updated', handleNotificationUpdate);
-    };
-  }, [provider]);
-
   const handleLogout = () => {
-    // Clear user data
     localStorage.removeItem("authUser");
     setUser(null);
-    // Redirect to login page
     navigate('/login');
   };
 
@@ -119,28 +86,6 @@ const ProviderNavbar = ({ activeTab, setActiveTab, provider, setUser }) => {
             >
               <span style={{ fontSize: "16px" }}>{item.icon}</span>
               <span>{item.label}</span>
-              
-              {/* Notification Badge */}
-              {item.badge > 0 && (
-                <span style={{
-                  position: "absolute",
-                  top: "6px",
-                  right: "6px",
-                  background: "#ef4444",
-                  color: "white",
-                  borderRadius: "50%",
-                  width: "18px",
-                  height: "18px",
-                  fontSize: "10px",
-                  fontWeight: "700",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  animation: item.badge > 0 ? "pulse 2s infinite" : "none"
-                }}>
-                  {item.badge > 9 ? '9+' : item.badge}
-                </span>
-              )}
             </button>
           ))}
         </div>
@@ -200,23 +145,6 @@ const ProviderNavbar = ({ activeTab, setActiveTab, provider, setUser }) => {
           </button>
         </div>
       </div>
-
-      {/*  pulse animation for notification badge */}
-      <style>
-        {`
-          @keyframes pulse {
-            0% {
-              transform: scale(1);
-            }
-            50% {
-              transform: scale(1.1);
-            }
-            100% {
-              transform: scale(1);
-            }
-          }
-        `}
-      </style>
     </nav>
   );
 };

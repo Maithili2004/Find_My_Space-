@@ -1,38 +1,75 @@
 import React, { useEffect, useState } from "react";
-import { getEvents, getParking } from "../Data/SeedData";
+import { getParkingSpots } from "../utils/parkingSpots";
 import EventList from "./EventList";
+import { collection, query, where, getDocs } from "firebase/firestore";
+import { db } from "../firebase";
+import { format } from "date-fns";
+
+// If you want events to be dynamic, create a getEvents() function in Firestore utils
+function getEvents() {
+  // Placeholder: Replace with Firestore fetch if needed
+  return [
+    { id: "event1", name: "Concert", date: "2025-08-20" },
+    { id: "event2", name: "Sports Match", date: "2025-08-22" }
+  ];
+}
 
 export default function Dashboard() {
   const [events, setEvents] = useState([]);
   const [parking, setParking] = useState([]);
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [todayTotalAvailable, setTodayTotalAvailable] = useState(0);
 
-  const loadData = () => {
-    setEvents(getEvents());
-    setParking(getParking());
-  };
+const loadData = async () => {
+  setEvents(getEvents());
+  const spots = await getParkingSpots();
+  setParking(spots);
+  const todayAvailable = await getTodayAvailableForAllSpots(spots);
+  setTodayTotalAvailable(todayAvailable);
+};
+
+const getTodayAvailableForAllSpots = async (spots) => {
+  const todayStr = format(new Date(), "yyyy-MM-dd");
+  let total = 0;
+  for (const spot of spots) {
+    const bookingsRef = collection(db, "bookings");
+    const q = query(
+      bookingsRef,
+      where("spotId", "==", spot.id),
+      where("date", "==", todayStr),
+      where("status", "in", ["confirmed", "escrow", "released", "active"])
+    );
+    const snapshot = await getDocs(q);
+    const bookedCount = snapshot.size;
+    const available = Math.max((spot.totalSlots || spot.available) - bookedCount, 0);
+    total += available;
+  }
+  return total;
+};
 
   useEffect(() => {
     loadData();
-    
+
     // Listen for parking updates from providers
     const handleParkingUpdate = () => {
       loadData();
     };
-    
+
     window.addEventListener('parking-updated', handleParkingUpdate);
     window.addEventListener('booking-updated', handleParkingUpdate);
-    
+
     return () => {
       window.removeEventListener('parking-updated', handleParkingUpdate);
       window.removeEventListener('booking-updated', handleParkingUpdate);
     };
   }, []);
 
-  const filteredParking = selectedEventId ? parking.filter(p => p.eventId === selectedEventId) : parking;
+  const filteredParking = selectedEventId
+    ? parking.filter(p => p.eventId === selectedEventId)
+    : parking;
 
-  const totalSlots = filteredParking.reduce((acc, p) => acc + p.slots, 0);
-  const totalAvailable = filteredParking.reduce((acc, p) => acc + p.available, 0);
+  const totalSlots = filteredParking.reduce((acc, p) => acc + (p.totalSlots || 0), 0);
+  const totalAvailable = filteredParking.reduce((acc, p) => acc + (p.available || 0), 0);
 
   return (
     <div style={{
@@ -41,6 +78,7 @@ export default function Dashboard() {
       width: "100%",
       padding: "0"
     }}>
+
       {/* Header Section */}
       <div style={{
         background: "linear-gradient(135deg, #fdfdfd 0%, #f4f6f8 100%)",
@@ -156,32 +194,32 @@ export default function Dashboard() {
             </div>
 
             <div style={{
-              background: totalAvailable > 0 
-                ? "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)" 
-                : "linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)",
-              padding: "16px 20px",
-              borderRadius: "12px",
-              textAlign: "center",
-              border: totalAvailable > 0 ? "1px solid #6ee7b7" : "1px solid #f87171"
-            }}>
-              <div style={{
-                fontSize: "24px",
-                fontWeight: "800",
-                color: totalAvailable > 0 ? "#047857" : "#dc2626",
-                marginBottom: "4px"
-              }}>
-                {totalAvailable}
-              </div>
-              <div style={{
-                fontSize: "12px",
-                color: "#374151",
-                fontWeight: "600",
-                textTransform: "uppercase",
-                letterSpacing: "0.5px"
-              }}>
-                Available Now
-              </div>
-            </div>
+  background: todayTotalAvailable > 0
+    ? "linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)"
+    : "linear-gradient(135deg, #fecaca 0%, #fca5a5 100%)",
+  padding: "16px 20px",
+  borderRadius: "12px",
+  textAlign: "center",
+  border: todayTotalAvailable > 0 ? "1px solid #6ee7b7" : "1px solid #f87171"
+}}>
+  <div style={{
+    fontSize: "24px",
+    fontWeight: "800",
+    color: todayTotalAvailable > 0 ? "#047857" : "#dc2626",
+    marginBottom: "4px"
+  }}>
+    {todayTotalAvailable}
+  </div>
+  <div style={{
+    fontSize: "12px",
+    color: "#374151",
+    fontWeight: "600",
+    textTransform: "uppercase",
+    letterSpacing: "0.5px"
+  }}>
+    Available Today
+  </div>
+</div>
 
             <div style={{
               background: "linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)",

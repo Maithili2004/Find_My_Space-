@@ -1,6 +1,7 @@
 import React from "react";
 import ParkingCard from "./ParkingCard"; 
 
+// 'parking' should be an array of parking spot objects fetched from Firestore
 export default function EventList({ parking = [], events = [] }) {
   if (parking.length === 0) {
     return (
@@ -10,7 +11,7 @@ export default function EventList({ parking = [], events = [] }) {
         background: "linear-gradient(135deg, #676EC2 0%, #252436 100%)",
         borderRadius: "20px",
         margin: "30px 0",
-        color: "#fffff",
+        color: "#fff", // fixed typo from "#fffff"
       }}>
         <div style={{
           fontSize: "80px",

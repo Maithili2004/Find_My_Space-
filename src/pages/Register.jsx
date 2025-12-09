@@ -1,14 +1,19 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { register } from "../utils/auth"; // Import Firebase register
+import { db, storage } from "../firebase";
+import { setDoc, doc } from "firebase/firestore";
+
 
 export default function Register({ setUser }) {
-  const [form, setForm] = useState({ 
-    username: "", 
-    password: "", 
-    email: "", 
-    role: "user" 
+  const [form, setForm] = useState({
+    username: "",
+    password: "",
+    email: "",
+    role: "user"
   });
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
   const navigate = useNavigate();
 
   const handleChange = e => {
@@ -16,36 +21,42 @@ export default function Register({ setUser }) {
     setForm(f => ({ ...f, [name]: value }));
   };
 
-
-const handleSubmit = e => {
-  e.preventDefault();
-  if (form.password.length < 6) {
-    setError("Password must be at least 6 characters.");
-    return;
-  }
-
-  // Get existing users
-  const allUsers = JSON.parse(localStorage.getItem("registeredUsers") || "[]");
-  
-  // Check if username already exists
-  if (allUsers.find(user => user.username === form.username)) {
-    setError("Username already exists. Please choose another.");
-    return;
-  }
-
-  // Create new user
-  const userData = { ...form, id: Date.now().toString() };
-  
-  // Add to users array
-  allUsers.push(userData);
-  localStorage.setItem("registeredUsers", JSON.stringify(allUsers));
-  
-  // Set as current user
-  localStorage.setItem("authUser", JSON.stringify(userData));
-  
-  setUser(userData);
-  navigate("/dashboard");
-};
+  const handleSubmit = async e => {
+    e.preventDefault();
+    setError("");
+    if (form.password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    // No provider-specific validation here. Verification will be handled after login.
+    try {
+      // Register with Firebase
+      const userCredential = await register(form.email, form.password);
+      setUser({
+        ...userCredential.user,
+        username: form.username,
+        role: form.role
+      });
+      
+      // Only save to database if user is not a provider
+      // Providers will be saved after completing verification
+      if (form.role !== "provider") {
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+          username: form.username,
+          email: form.email,
+          role: form.role
+        });
+      }
+      
+      if (form.role === "provider") {
+        navigate("/provider-verification");
+      } else {
+        navigate("/dashboard");
+      }
+    } catch (err) {
+      setError(err.message || "Registration failed. Try again.");
+    }
+  };
 
   return (
     <div style={{
@@ -185,6 +196,7 @@ const handleSubmit = e => {
               <option value="provider">🏢 Parking Provider</option>
             </select>
           </div>
+          {/* Provider-specific fields removed. Verification will be handled after login. */}
 
           {/* Error Message */}
           {error && (

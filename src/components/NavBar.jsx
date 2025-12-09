@@ -42,7 +42,7 @@ export default function Navbar({ user, setUser }) {
         {/* Navigation Links */}
         <div style={{ display: "flex", gap: "0", alignItems: "center" }}>
           <Link
-            to="/"
+            to="/home"
             style={{
               color: "white",
               textDecoration: "none",
