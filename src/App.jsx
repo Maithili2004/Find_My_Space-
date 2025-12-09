@@ -6,7 +6,7 @@ import ProviderDashboard from "./pages/ProviderDashboard";
 import BookParking from "./pages/BookParking";
 import Login from './pages/Login';
 import Register from './pages/Register';
-import Cards from './components/cards';
+import Cards from './components/Cards';
 import ProviderVerification from "./pages/ProviderVerification";
 // Import Firebase auth
 import { auth } from "./firebase";
