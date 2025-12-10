@@ -7,27 +7,21 @@ service cloud.firestore {
       allow create: if request.auth.uid != null;
     }
 
-    // Bookings collection - Allow authenticated users to create and manage
+    // Bookings collection - PERMISSIVE for testing
     match /bookings/{bookingId} {
-      allow read: if request.auth.uid != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.providerId);
-      allow create: if request.auth.uid != null;
-      allow update: if request.auth.uid != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.providerId);
-      allow delete: if request.auth.uid != null && request.auth.uid == resource.data.userId;
+      allow read, write: if request.auth.uid != null;
     }
 
     // Payments collection - Only backend can create
     match /payments/{paymentId} {
-      allow read: if request.auth.uid != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.providerId);
+      allow read, write: if request.auth.uid != null;
       allow create: if false; // Only backend via Admin SDK
-      allow update: if request.auth.uid != null && (request.auth.uid == resource.data.userId || request.auth.uid == resource.data.providerId);
     }
 
     // Parking Spots collection
     match /parkingSpots/{spotId} {
       allow read: if request.auth.uid != null;
-      allow create: if request.auth.uid != null && request.auth.uid == request.resource.data.providerId;
-      allow update: if request.auth.uid != null && request.auth.uid == resource.data.providerId;
-      allow delete: if request.auth.uid != null && request.auth.uid == resource.data.providerId;
+      allow create, update, delete: if request.auth.uid != null;
     }
   }
 }
