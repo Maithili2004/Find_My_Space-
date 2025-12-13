@@ -434,6 +434,31 @@ function ProviderDashboard({ provider, setUser }) {
                     🎉 This is an Event Spot
                   </label>
                 </div>
+
+                {form.isEvent && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", color: "#374151" }}>
+                      Event Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="eventName"
+                      placeholder="e.g., Sunburn Music Festival, Goa Carnival"
+                      value={form.eventName || ""}
+                      onChange={handleChange}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        boxSizing: "border-box"
+                      }}
+                      required={form.isEvent}
+                    />
+                  </div>
+                )}
+
                 <button
                   type="submit"
                   style={{
@@ -610,6 +635,31 @@ function ProviderDashboard({ provider, setUser }) {
                     🎉 This is an Event Spot
                   </label>
                 </div>
+
+                {form.isEvent && (
+                  <div style={{ marginBottom: "16px" }}>
+                    <label style={{ display: "block", marginBottom: "8px", fontWeight: "500", color: "#374151" }}>
+                      Event Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="eventName"
+                      placeholder="e.g., Sunburn Music Festival, Goa Carnival"
+                      value={form.eventName || ""}
+                      onChange={handleChange}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "8px",
+                        fontSize: "14px",
+                        boxSizing: "border-box"
+                      }}
+                      required={form.isEvent}
+                    />
+                  </div>
+                )}
+
                 {/* Removed advance payment info box */}
                 <button
                   type="submit"

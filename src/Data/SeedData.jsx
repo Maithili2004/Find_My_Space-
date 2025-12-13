@@ -4,12 +4,7 @@ const BOOKINGS_KEY = "fms_bookings";
 const PROVIDER_SPOTS_KEY = "fms_provider_spots";
 const NOTIFICATIONS_KEY = "fms_notifications";
 
-const sampleEvents = [
-  { id: "e1", name: "Sunburn", location: "Vagator", date: "2025-12-01", times: ["18:00-22:00"] },
-  { id: "e2", name: "Goa Carnival", location: "Panaji", date: "2025-02-15", times: ["10:00-23:00"] },
-];
-
-
+// Events are now managed in Firestore, not localStorage
 const sampleParking = [];
 
 export function seedIfNeeded() {
@@ -42,7 +37,8 @@ export function getParking() {
     id: `provider_${spot.id}`,
     name: spot.location,
     address: spot.location,
-    eventId: spot.isEvent ? "e1" : "", 
+    eventId: spot.eventId || "", // Now pulled from spot's eventId field (created by provider)
+    eventName: spot.eventName || "", // Event name from provider
     slots: parseInt(spot.totalSlots) || 10, 
     available: parseInt(spot.available) || parseInt(spot.totalSlots) || 10, 
     pricePerHour: parseInt(spot.price),
